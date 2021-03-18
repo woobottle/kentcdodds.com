@@ -1,0 +1,23 @@
+name: 'Skip deploy'
+description: 'Outputs a variable to indicate whether deploy should be skipped'
+runs:
+  using: 'node12'
+  main: 'index.js'
+inputs:
+  start_commit:
+    description: The starting commit to compare
+    required: true
+  deploy_regex:
+    description: If any changed file matches this regex, it will deploy
+    default: '.*'
+    required: false
+  skip_regex:
+    description:
+      Any of the files that match the deploy_regex will be further filtered with
+      skip_regex. Deploy will be skipped if no files are left.
+    required: true
+outputs:
+  content_only:
+    description:
+      '"true" if only content was changed between the given commits and "false"
+      if anything else was changed'

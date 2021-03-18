@@ -1,0 +1,18 @@
+name: 'Get Last Commit Hash'
+description: 'Gets the commit hash of the most recent successful run.'
+runs:
+  using: 'node12'
+  main: 'index.js'
+inputs:
+  workflow_name:
+    description: The name of the workflow in question
+    required: true
+  branch:
+    description: The name of the branch
+    required: true
+  github_token:
+    description: The GitHub Token
+    required: true
+outputs:
+  commit_hash: # id of output
+    description: 'The commit hash of the most recent successful run'
