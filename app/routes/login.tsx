@@ -2,14 +2,7 @@ import * as React from 'react'
 import {useRouteData} from '@remix-run/react'
 import {json, redirect} from '@remix-run/node'
 import type {ActionFunction, LoaderFunction} from '@remix-run/node'
-import {
-  createEmailUser,
-  signInWithEmail,
-  getUser,
-  rootStorage,
-  createUserSession,
-  sendPasswordResetEmail,
-} from '../utils/session.server'
+import {sendToken, getUser, rootStorage} from '../utils/session.server'
 
 export const loader: LoaderFunction = async ({request}) => {
   const userInfo = await getUser(request)
@@ -31,44 +24,17 @@ export const action: ActionFunction = async ({request}) => {
   const params = new URLSearchParams(await request.text())
   const session = await rootStorage.getSession(request.headers.get('Cookie'))
   const email = params.get('email')
-  const password = params.get('password')
-  const actionId = params.get('actionId')
   if (!email?.match(/.+@.+/)) {
     session.flash('error', 'A valid email is required')
     const cookie = await rootStorage.commitSession(session)
     return redirect(`/login`, {headers: {'Set-Cookie': cookie}})
   }
 
-  if (actionId === 'reset password') {
-    session.flash(
-      'message',
-      `Password reset email will be sent if an account exists for ${email}`,
-    )
-    const cookie = await rootStorage.commitSession(session)
-    await sendPasswordResetEmail(email)
-    return redirect('/login', {headers: {'Set-Cookie': cookie}})
-  }
-
-  if (!password || password.length < 6) {
-    session.flash(
-      'error',
-      'Password is required and must be at least 6 characters',
-    )
+  try {
+    await sendToken(email)
+    session.flash('message', 'Email sent.')
     const cookie = await rootStorage.commitSession(session)
     return redirect(`/login`, {headers: {'Set-Cookie': cookie}})
-  }
-  let user
-  try {
-    const data =
-      actionId === 'register'
-        ? await createEmailUser(email, password)
-        : await signInWithEmail(email, password)
-    user = data.user
-    if (!user) {
-      session.flash('error', 'Email and password are required')
-      const cookie = await rootStorage.commitSession(session)
-      return redirect(`/login`, {headers: {'Set-Cookie': cookie}})
-    }
   } catch (e: unknown) {
     let message = 'Unknown error'
     if (e instanceof Error) {
@@ -79,8 +45,6 @@ export const action: ActionFunction = async ({request}) => {
 
     return redirect(`/login`, {headers: {'Set-Cookie': cookie}})
   }
-  const token = await user.getIdToken()
-  return createUserSession(token)
 }
 
 function LoginForm() {
@@ -88,25 +52,20 @@ function LoginForm() {
 
   const [formValues, setFormValues] = React.useState({
     email: '',
-    password: '',
   })
-  const emailRef = React.useRef<HTMLInputElement>(null)
 
   const emailIsValid = formValues.email.match(/.+@.+/)
-  const passwordIsValid = formValues.password.length >= 6
-  const formIsValid = emailIsValid && passwordIsValid
+  const formIsValid = emailIsValid
 
   return (
     <div className="mt-8">
+      <div>Sign in (or sign up) to KCD</div>
       {data.message ? <div>{data.message}</div> : null}
       <form
         className="space-y-6"
         onChange={event => {
           const form = event.currentTarget
-          setFormValues({
-            email: form.email.value,
-            password: form.password.value,
-          })
+          setFormValues({email: form.email.value})
         }}
         action="/login"
         method="post"
@@ -117,7 +76,6 @@ function LoginForm() {
               Email address
             </label>
             <input
-              ref={emailRef}
               autoFocus
               aria-describedby={data.error ? 'error-message' : 'message'}
               id="email-address"
@@ -130,53 +88,16 @@ function LoginForm() {
               placeholder="Email address"
             />
           </div>
-          <div>
-            <label htmlFor="password" className="sr-only">
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="off"
-              className="relative block w-full px-3 py-2 -mt-1 text-gray-200 placeholder-gray-500 bg-gray-800 border-2 border-gray-700 rounded-none appearance-none rounded-b-md focus:outline-none focus:border-yellow-500 focus:z-10 sm:text-sm"
-              placeholder="Password"
-            />
-          </div>
         </div>
         <div>
           <button
             type="submit"
-            name="actionId"
-            value="sign in"
             disabled={!formIsValid}
             className={`w-50 py-2 px-4 border-2 border-transparent text-sm font-medium rounded-md text-white bg-blue-500 hover:bg-blue-600 focus:outline-none focus:border-yellow-500 ${
               formIsValid ? '' : 'opacity-50'
             }`}
           >
-            Sign in
-          </button>
-          <button
-            type="submit"
-            name="actionId"
-            value="register"
-            disabled={!formIsValid}
-            className={`w-50 py-2 px-4 border-2 border-transparent text-sm font-medium rounded-md text-white bg-blue-500 hover:bg-blue-600 focus:outline-none focus:border-yellow-500 ${
-              formIsValid ? '' : 'opacity-50'
-            }`}
-          >
-            Register
-          </button>
-          <button
-            type="submit"
-            name="actionId"
-            value="reset password"
-            disabled={!emailIsValid}
-            className={`w-50 py-2 px-4 border-2 border-transparent text-sm font-medium rounded-md text-white bg-blue-500 hover:bg-blue-600 focus:outline-none focus:border-yellow-500 ${
-              emailIsValid ? '' : 'opacity-50'
-            }`}
-          >
-            Request Password Reset
+            Email a login link
           </button>
         </div>
         {data.error ? (

@@ -46,70 +46,6 @@ async function getTransporter(): Promise<Mail> {
   return lazyTransporter
 }
 
-async function sendConfirmationEmail({
-  emailAddress,
-  confirmationLink,
-}: {
-  emailAddress: string
-  confirmationLink: string
-}) {
-  const sender = `"Kent C. Dodds Team" <team@kentcdodds.com>`
-
-  const body = `
-Thanks for signing up for an account on kentcdodds.com! Please confirm your email address by opening the following link:
-
-${confirmationLink}
-
-Thanks!
-
-–The KCD Team
-
-P.S. If you did not sign up for an account on kentcdodds.com you can ignore this email.
-  `.trim()
-
-  const message = {
-    from: sender,
-    to: emailAddress,
-    subject: 'Confirm your email address',
-    text: body,
-    html: await markdownToHtml(body),
-  }
-
-  await sendEmail(message)
-}
-
-async function sendPasswordResetEmail({
-  emailAddress,
-  passwordRestLink,
-}: {
-  emailAddress: string
-  passwordRestLink: string
-}) {
-  const sender = `"Kent C. Dodds Team" <team@kentcdodds.com>`
-
-  const body = `
-A request was made to reset your kentcdodds.com account password. Click this link to reset your password:
-
-${passwordRestLink}
-
-Thanks!
-
-–The KCD Team
-
-P.S. If you did not request this email, you can safely ignore it.
-  `.trim()
-
-  const message = {
-    from: sender,
-    to: emailAddress,
-    subject: 'Reset your password',
-    text: body,
-    html: await markdownToHtml(body),
-  }
-
-  await sendEmail(message)
-}
-
 async function sendEmail(message: Mail.Options) {
   const transporter = await getTransporter()
   await transporter.sendMail({
@@ -118,7 +54,7 @@ async function sendEmail(message: Mail.Options) {
   })
 }
 
-export {sendEmail, sendConfirmationEmail, sendPasswordResetEmail}
+export {sendEmail}
 
 /*
 eslint
