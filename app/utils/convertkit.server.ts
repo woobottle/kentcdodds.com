@@ -12,6 +12,13 @@ type ConvertKitSubscriber = {
   fields: Record<string, string | null>
 }
 
+type ConvertKitSequenceSubscriptions = {
+  total_subscriptions: number
+  page: number
+  total_pages: number
+  subscriptions: [{subscriber: ConvertKitSubscriber}]
+}
+
 async function getConvertKitSubscriber(email: string) {
   const url = new URL('https://api.convertkit.com/v3/subscribers')
   url.searchParams.set('api_secret', CONVERT_KIT_API_SECRET)
@@ -24,6 +31,39 @@ async function getConvertKitSubscriber(email: string) {
   }
 
   return subscriber.state === 'active' ? subscriber : null
+}
+
+async function getConvertKitNewsletterSequence() {
+  const newsletterSequenceId = '372244'
+  let page = 1
+  let totalPages = 2
+  const allSubscribers: Array<ConvertKitSubscriber> = []
+  while (page < totalPages) {
+    // eslint-disable-next-line no-await-in-loop
+    const result = await getConvertKitSequencePage(newsletterSequenceId, page)
+    allSubscribers.push(...result.subscriptions.map(s => s.subscriber))
+    totalPages = result.total_pages
+    page = result.page + 1
+    console.log({
+      totalPages,
+      page,
+      totalSubscriptions: result.total_subscriptions,
+      subsSoFar: allSubscribers.length,
+    })
+  }
+  return allSubscribers
+}
+
+async function getConvertKitSequencePage(sequenceId: string, page: number) {
+  const url = new URL(
+    `https://api.convertkit.com/v3/sequences/${sequenceId}/subscriptions`,
+  )
+  url.searchParams.set('api_secret', CONVERT_KIT_API_SECRET)
+  url.searchParams.set('subscriber_state', 'active')
+  url.searchParams.set('page', page.toString())
+  const resp = await fetch(url.toString())
+  const json = await resp.json()
+  return json as ConvertKitSequenceSubscriptions
 }
 
 async function tagKCDSiteSubscriber({
@@ -66,3 +106,10 @@ async function tagKCDSiteSubscriber({
 }
 
 export {tagKCDSiteSubscriber, getConvertKitSubscriber}
+
+async function go() {
+  const subs = await getConvertKitNewsletterSequence()
+  console.dir(subs, {depth: 6})
+}
+
+void go()
