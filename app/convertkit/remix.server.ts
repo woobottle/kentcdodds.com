@@ -1,5 +1,4 @@
-import {redirect, createCookieSessionStorage, Headers} from 'remix'
-import type {Request, ResponseInit} from 'remix'
+import {redirect, createCookieSessionStorage} from 'remix'
 import {getRequiredServerEnvVar} from '~/utils/misc'
 import {handleFormSubmission} from '~/utils/actions.server'
 import {deleteConvertKitCache} from '~/utils/user-info.server'

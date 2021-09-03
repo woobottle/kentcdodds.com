@@ -1,12 +1,6 @@
 import * as React from 'react'
 import ReactDOMServer from 'react-dom/server'
-import {
-  RemixServer as Remix,
-  Response,
-  Request,
-  Headers,
-  EntryContext,
-} from 'remix'
+import {RemixServer as Remix, EntryContext} from 'remix'
 import {getDataReplayResponse} from './utils/prisma.server'
 import {getEnv} from './utils/env.server'
 import {routes as otherRoutes} from './other-routes.server'

@@ -1,6 +1,5 @@
 import * as React from 'react'
 import {
-  Headers,
   Links,
   Meta,
   Scripts,
@@ -11,12 +10,7 @@ import {
   useMatches,
   useTransition,
 } from 'remix'
-import type {
-  LinksFunction,
-  MetaFunction,
-  HeadersFunction,
-  HeadersInit,
-} from 'remix'
+import type {LinksFunction, MetaFunction, HeadersFunction} from 'remix'
 import {Outlet} from 'react-router-dom'
 import {AnimatePresence, motion} from 'framer-motion'
 import {useSpinDelay} from 'spin-delay'
