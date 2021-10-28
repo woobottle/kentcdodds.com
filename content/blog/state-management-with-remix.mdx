@@ -1,0 +1,202 @@
+---
+title: State Management with Remix
+date: 2021-10-28
+description: How Remix makes state management largely a non-question.
+categories:
+  - remix
+meta:
+  keywords:
+    - react
+    - state management
+    - redux
+    - remix
+    - mobx
+    - react-query
+    - server cache
+bannerCloudinaryId: unsplash/photo-1561657356-f93ac710757c
+bannerAlt: green trees near body of water during daytime
+bannerCredit: Photo by [Dave Hoefler](https://unsplash.com/photos/PkQH-GHEp0A)
+---
+
+State management is one of the most tricky bits of any framework you're using.
+I've spent countless hours grapling with it and helping answer questions from
+others who graple with it themselves. This is one reason why I'm so excited
+about Remix: State management is largely handled for you. Let me show you a real
+world example of how managing state works in Remix and why this problem is
+well-managed for you by Remix.
+
+For our post here, we're going to image you landed on this episode of the Call
+Kent Podcast:
+[/calls/01/12/work-life-balance](https://kentcdodds.com/calls/01/12/work-life-balance).
+
+The route scheme for that is: `/` (`app/root.tsx` loader) `calls/`
+(`app/routes/calls.tsx` loader) `01/12/work-life-balance/`
+(`app/routes/calls/$seasonNumber.$episodeNumber.$slug.tsx` loader). Here's that
+visualized:
+
+<Themed
+  dark={
+    <a
+      href="/img/image/upload/kentcdodds.com/content/blog/state-management-with-remix/routing-loaders-dark"
+      target="_blank"
+    >
+      <BlogImage
+        cloudinaryId="kentcdodds.com/content/blog/state-management-with-remix/routing-loaders-dark"
+        imgProps={{alt: 'Excalidraw diagram of the nested routing setup'}}
+      />
+    </a>
+  }
+  light={
+    <a
+      href="/img/image/upload/kentcdodds.com/content/blog/state-management-with-remix/routing-loaders-light"
+      target="_blank"
+    >
+      <BlogImage
+        cloudinaryId="kentcdodds.com/content/blog/state-management-with-remix/routing-loaders-light"
+        imgProps={{alt: 'Excalidraw diagram of the nested routing setup'}}
+      />
+    </a>
+  }
+/>
+
+When you go to [the Chats with Kent Podcast page](/chats), I need to make a
+request to the [transistor.fm](https://transistor.fm/) API to get the episodes.
+Because my site is open source, you can
+[find the code for this here](https://github.com/kentcdodds/kentcdodds.com/blob/a5fb98e702a9917e85b647a4b0f714ca7161746d/app/routes/calls.tsx),
+but here's the bit I want to use to demonstrate how Remix helps me manage the
+state of the episodes (considerably modified and simplified for brievity and to
+reduce distraction from what's relevant for this post):
+
+```tsx filename=app/routes/calls.tsx
+export const handle: KCDHandle & {id: string} = {
+  id: 'calls',
+}
+
+export type LoaderData = {
+  episodes: Await<ReturnType<typeof getEpisodes>>
+  blogRecommendations: Await<ReturnType<typeof getBlogRecommendations>>
+}
+
+export const loader: LoaderFunction = async ({request}) => {
+  const [blogRecommendations, episodes] = await Promise.all([
+    getBlogRecommendations(request),
+    getEpisodes({request}),
+  ])
+
+  const data: LoaderData = {
+    blogRecommendations,
+    episodes,
+  }
+  return json(data, {
+    headers: {
+      'Cache-Control': 'private, max-age=3600',
+      Vary: 'Cookie',
+    },
+  })
+}
+
+export default function CallHomeScreen() {
+  const data = useLoaderData<LoaderData>()
+
+  const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('desc')
+  const sortedEpisodes =
+    sortOrder === 'desc' ? [...data.episodes].reverse() : data.episodes
+
+  const selectedEpisode = useSelectedEpisode(data.episodes)
+
+  // this is drastically simplified from the actual UI that's rendered
+  // but we've kept the core concepts in tact!
+  return (
+    <div>
+      <button onClick={() => setSortOrder(o => (o === 'asc' ? 'desc' : 'asc'))}>
+        {sortOrder === 'asc' ? (
+          <>
+            Showing oldest first
+            <ChevronUpIcon />
+          </>
+        ) : (
+          <>
+            Showing newest first
+            <ChevronDownIcon />
+          </>
+        )}
+      </button>
+
+      <div>
+        {sortedEpisodes.map(episode => {
+          const path = getEpisodePath(episode)
+
+          return (
+            <div>
+              <Link to={path}>
+                <div>
+                  {`${episode.episodeNumber}. ${episode.title}`}{' '}
+                  {formatTime(episode.duration)}
+                </div>
+              </Link>
+              {selectedEpisode === episode ? <Outlet /> : null}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+export const useCallsData = () => useMatchLoaderData<LoaderData>(handle.id)
+```
+
+That `<Outlet />` component renders for the child route
+`/calls/:seasonNumber/:episodeNumber/:slug`. Here's the route module that
+renders there (again, [full version available on github]()):
+
+```tsx filename=app/routes/calls/$season.$episode.$slug.tsx
+import {useParams} from 'react-router-dom'
+import {getEpisodes} from '~/utils/transistor.server'
+import {getEpisodeFromParams, Params} from '~/utils/call-kent'
+import {useCallsData} from '../calls'
+
+export default function Screen() {
+  const params = useParams() as Params
+  const {episodes} = useCallsData()
+  const episode = getEpisodeFromParams(episodes, params)
+
+  return <>{/* render episode metadata and iframe for the player */}</>
+}
+```
+
+Oh, and for some additional context, I also have a root route on the page that
+renders the `<html />`, `<nav />`, and `<footer />` elements and it also loads
+some data about the user as well. So in summary, here's all the data I have from
+the loaders on an episode route:
+
+```ts
+// app/root.tsx:
+type LoaderData = {
+  user: User | null
+  userInfo: Await<ReturnType<typeof getUserInfo>> | null
+  ENV: ReturnType<typeof getEnv>
+  randomFooterImageKey: keyof typeof illustrationImages
+  requestInfo: {
+    origin: string
+    path: string
+    session: {
+      email: string | undefined
+      magicLinkVerified: boolean | undefined
+      theme: Theme | null
+    }
+  }
+}
+
+// app/calls.tsx
+type LoaderData = {
+  episodes: Await<ReturnType<typeof getEpisodes>>
+  blogRecommendations: Await<ReturnType<typeof getBlogRecommendations>>
+}
+```
+
+Alrighty, so let's talk about some of the stuff we've got here.
+
+## Where data loading happens
+
+Let's talk about the `loader` functions in your module. When
