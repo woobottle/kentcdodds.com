@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - main
+      - dev
   pull_request: {}
 
 jobs:
@@ -168,8 +169,9 @@ jobs:
     name: 🐳 Build
     needs: [changes]
     if:
-      ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' &&
-      needs.changes.outputs.DEPLOYABLE == 'true' }}
+      ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/head/dev') &&
+      github.event_name == 'push' && needs.changes.outputs.DEPLOYABLE == 'true'
+      }}
     runs-on: ubuntu-latest
     # only build/deploy main branch on pushes
     steps:
@@ -198,7 +200,20 @@ jobs:
           username: x
           password: ${{ secrets.FLY_API_TOKEN }}
 
-      - name: 🐳 Docker build
+      - name: 🐳 Docker build PRODUCTION
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: registry.fly.io/withered-frost-3196:${{ github.sha }}
+          build-args: |
+            COMMIT_SHA=${{ github.sha }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,mode=max,dest=/tmp/.buildx-cache-new
+
+      - name: 🐳 Docker build STAGING
+        if: ${{ github.ref == 'refs/heads/dev' }}
         uses: docker/build-push-action@v2
         with:
           context: .
